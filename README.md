@@ -1,4 +1,3 @@
-
 # Literature-Gen
 
 Literature-Gen is an AI-powered literature and character generation platform built using [Mastra](https://mastra.ai/).  
