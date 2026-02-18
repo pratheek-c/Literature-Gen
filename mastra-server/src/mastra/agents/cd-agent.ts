@@ -1,6 +1,4 @@
 import { Agent } from "@mastra/core/agent";
-import {  CharacterDevelopmentOutputSchema } from '../../schema/character-dev'
-import { MemoryLibSQL } from "@mastra/libsql";
 import { Memory } from "@mastra/memory";
 
 export const characterDevelopmentAgent = new Agent({
