@@ -3,6 +3,7 @@ import { Mastra } from '@mastra/core/mastra';
 import { PinoLogger } from '@mastra/loggers';
 import { LibSQLStore } from '@mastra/libsql';
 import { Observability, DefaultExporter, CloudExporter, SensitiveDataFilter } from '@mastra/observability';
+import { registerCopilotKit } from '@ag-ui/mastra/copilotkit';
 import { weatherWorkflow } from './workflows/weather-workflow';
 import { weatherAgent } from './agents/weather-agent';
 import { toolCallAppropriatenessScorer, completenessScorer, translationScorer } from './scorers/weather-scorer';
@@ -36,4 +37,17 @@ export const mastra = new Mastra({
       },
     },
   }),
+  server: {
+    cors: {
+      origin: "*",
+      allowMethods: ["*"],
+      allowHeaders: ["*"]
+    },
+    apiRoutes: [
+      registerCopilotKit({
+        path: '/chat',
+        resourceId: 'characterDevelopmentAgent'
+      })
+    ]
+  }
 });
