@@ -1,65 +1,25 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CopilotChat } from "@copilotkit/react-ui";
+import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface CharacterData {
-    basicInfo: {
-        name: string;
-        role: string;
-        age: string;
-        gender: string;
-        occupation: string;
-        background: string;
-    };
-    personality: {
-        traits: string[];
-        strengths: string[];
-        flaws: string[];
-        fears: string[];
-        desires: string[];
-        internalConflicts: string[];
-    };
-    motivations: {
-        shortTermGoals: string[];
-        longTermGoals: string[];
-        drivingForce: string;
-    };
-    backstory: {
-        origin: string;
-        keyLifeEvents: string[];
-        traumaOrTurningPoints: string[];
-    };
-    characterArc: {
-        startingState: string;
-        challenges: string[];
-        transformation: string;
-        endingState: string;
-    };
-    dialogueStyle: {
-        tone: string;
-        speechPatterns: string[];
-        vocabularyLevel: string;
-    };
-    narrativeFunction: {
-        storyPurpose: string;
-        themesRepresented: string[];
-        keyConflictsInvolved: string[];
-    };
-    metadata: {
-        genre: string;
-        worldSetting: string;
-        notes: string;
-    };
-    relationships: Array<{
-        characterName: string;
-        relationshipType: string;
-        emotionalDynamic: string;
-    }>;
+    name: string;
+    role: string;
+    age?: number;
+    gender?: string;
+    occupation?: string;
+    background?: string;
+    traits: string[];
+    strengths: string[];
+    flaws: string[];
+    fears: string[];
+    desires: string[];
 }
 
 interface StoryParams {
@@ -67,378 +27,198 @@ interface StoryParams {
     setting: string;
     plotPremise: string;
     tone: string;
-    targetAudience: string;
     chapterCount: number;
-    additionalNotes: string;
 }
-
-// ── Tag Input Component ──────────────────────────────────────────────────────
-
-function TagInput({ value, onChange, placeholder }: { value: string[]; onChange: (v: string[]) => void; placeholder?: string }) {
-    const [input, setInput] = useState("");
-    const add = () => {
-        const trimmed = input.trim();
-        if (trimmed && !value.includes(trimmed)) {
-            onChange([...value, trimmed]);
-            setInput("");
-        }
-    };
-    return (
-        <div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: value.length ? 10 : 0 }}>
-                {value.map((tag) => (
-                    <span key={tag} className="tag">
-                        {tag}
-                        <button className="tag-remove" onClick={() => onChange(value.filter((t) => t !== tag))}>✕</button>
-                    </span>
-                ))}
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-                <input
-                    className="form-input"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
-                    placeholder={placeholder ?? "Type and press Enter"}
-                    style={{ flex: 1 }}
-                />
-                <button type="button" onClick={add} className="btn-ghost" style={{ padding: "10px 16px", fontSize: 13 }}>Add</button>
-            </div>
-        </div>
-    );
-}
-
-// ── Field Group ──────────────────────────────────────────────────────────────
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-    return (
-        <div style={{ marginBottom: 20 }}>
-            <label className="form-label">{label}</label>
-            {children}
-        </div>
-    );
-}
-
-// ── Step Components ──────────────────────────────────────────────────────────
-
-function Step1BasicInfo({ data, onChange }: { data: CharacterData; onChange: (d: CharacterData) => void }) {
-    const set = (k: keyof CharacterData["basicInfo"], v: string) =>
-        onChange({ ...data, basicInfo: { ...data.basicInfo, [k]: v } });
-
-    return (
-        <div>
-            <h2 className="font-serif" style={{ fontSize: 28, marginBottom: 8 }}>Basic Character Info</h2>
-            <p style={{ color: "var(--text-secondary)", marginBottom: 32 }}>Define who your character is at their core.</p>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-                <Field label="Character Name *">
-                    <input className="form-input" value={data.basicInfo.name} onChange={e => set("name", e.target.value)} placeholder="e.g. Elara Voss" />
-                </Field>
-                <Field label="Role *">
-                    <select className="form-select" value={data.basicInfo.role} onChange={e => set("role", e.target.value)}>
-                        <option value="">Select role…</option>
-                        {["protagonist", "antagonist", "supporting", "minor", "mentor", "foil", "sidekick", "other"].map(r => (
-                            <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
-                        ))}
-                    </select>
-                </Field>
-                <Field label="Age">
-                    <input className="form-input" type="number" value={data.basicInfo.age} onChange={e => set("age", e.target.value)} placeholder="e.g. 28" />
-                </Field>
-                <Field label="Gender">
-                    <input className="form-input" value={data.basicInfo.gender} onChange={e => set("gender", e.target.value)} placeholder="e.g. Female" />
-                </Field>
-                <Field label="Occupation">
-                    <input className="form-input" value={data.basicInfo.occupation} onChange={e => set("occupation", e.target.value)} placeholder="e.g. Archaeologist" />
-                </Field>
-                <Field label="Genre / World Setting">
-                    <input className="form-input" value={data.metadata.genre} onChange={e => onChange({ ...data, metadata: { ...data.metadata, genre: e.target.value } })} placeholder="e.g. Fantasy, Sci-Fi" />
-                </Field>
-            </div>
-            <Field label="Background">
-                <textarea className="form-textarea" value={data.basicInfo.background} onChange={e => set("background", e.target.value)} placeholder="Brief background of the character…" />
-            </Field>
-            <Field label="Story Purpose *">
-                <textarea className="form-textarea" value={data.narrativeFunction.storyPurpose} onChange={e => onChange({ ...data, narrativeFunction: { ...data.narrativeFunction, storyPurpose: e.target.value } })} placeholder="What role does this character play in the story?" style={{ minHeight: 70 }} />
-            </Field>
-        </div>
-    );
-}
-
-function Step2Personality({ data, onChange }: { data: CharacterData; onChange: (d: CharacterData) => void }) {
-    const setP = (k: keyof CharacterData["personality"], v: string[]) =>
-        onChange({ ...data, personality: { ...data.personality, [k]: v } });
-
-    return (
-        <div>
-            <h2 className="font-serif" style={{ fontSize: 28, marginBottom: 8 }}>Personality & Psychology</h2>
-            <p style={{ color: "var(--text-secondary)", marginBottom: 32 }}>Shape the inner world of your character.</p>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-                <Field label="Personality Traits">
-                    <TagInput value={data.personality.traits} onChange={v => setP("traits", v)} placeholder="e.g. Stubborn, Curious…" />
-                </Field>
-                <Field label="Strengths">
-                    <TagInput value={data.personality.strengths} onChange={v => setP("strengths", v)} placeholder="e.g. Brave, Empathetic…" />
-                </Field>
-                <Field label="Flaws">
-                    <TagInput value={data.personality.flaws} onChange={v => setP("flaws", v)} placeholder="e.g. Impulsive, Jealous…" />
-                </Field>
-                <Field label="Fears">
-                    <TagInput value={data.personality.fears} onChange={v => setP("fears", v)} placeholder="e.g. Abandonment, Failure…" />
-                </Field>
-                <Field label="Desires">
-                    <TagInput value={data.personality.desires} onChange={v => setP("desires", v)} placeholder="e.g. Recognition, Freedom…" />
-                </Field>
-                <Field label="Internal Conflicts">
-                    <TagInput value={data.personality.internalConflicts} onChange={v => setP("internalConflicts", v)} placeholder="e.g. Duty vs. Love…" />
-                </Field>
-            </div>
-
-            <div className="divider" />
-
-            <Field label="Dialogue Tone">
-                <input className="form-input" value={data.dialogueStyle.tone} onChange={e => onChange({ ...data, dialogueStyle: { ...data.dialogueStyle, tone: e.target.value } })} placeholder="e.g. Sarcastic, Formal, Warm" />
-            </Field>
-            <Field label="Vocabulary Level">
-                <select className="form-select" value={data.dialogueStyle.vocabularyLevel} onChange={e => onChange({ ...data, dialogueStyle: { ...data.dialogueStyle, vocabularyLevel: e.target.value } })}>
-                    <option value="">Select level…</option>
-                    {["simple", "casual", "formal", "technical", "poetic"].map(v => (
-                        <option key={v} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}</option>
-                    ))}
-                </select>
-            </Field>
-        </div>
-    );
-}
-
-function Step3Arc({ data, onChange }: { data: CharacterData; onChange: (d: CharacterData) => void }) {
-    return (
-        <div>
-            <h2 className="font-serif" style={{ fontSize: 28, marginBottom: 8 }}>Story Arc & Backstory</h2>
-            <p style={{ color: "var(--text-secondary)", marginBottom: 32 }}>Define where your character starts and where they end up.</p>
-
-            <Field label="Origin / Backstory">
-                <textarea className="form-textarea" value={data.backstory.origin} onChange={e => onChange({ ...data, backstory: { ...data.backstory, origin: e.target.value } })} placeholder="Where did this character come from?" />
-            </Field>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-                <Field label="Key Life Events">
-                    <TagInput value={data.backstory.keyLifeEvents} onChange={v => onChange({ ...data, backstory: { ...data.backstory, keyLifeEvents: v } })} placeholder="e.g. Lost a parent…" />
-                </Field>
-                <Field label="Trauma / Turning Points">
-                    <TagInput value={data.backstory.traumaOrTurningPoints} onChange={v => onChange({ ...data, backstory: { ...data.backstory, traumaOrTurningPoints: v } })} placeholder="e.g. Betrayed by mentor…" />
-                </Field>
-                <Field label="Short-Term Goals">
-                    <TagInput value={data.motivations.shortTermGoals} onChange={v => onChange({ ...data, motivations: { ...data.motivations, shortTermGoals: v } })} placeholder="e.g. Escape the city…" />
-                </Field>
-                <Field label="Long-Term Goals">
-                    <TagInput value={data.motivations.longTermGoals} onChange={v => onChange({ ...data, motivations: { ...data.motivations, longTermGoals: v } })} placeholder="e.g. Restore family honor…" />
-                </Field>
-            </div>
-
-            <Field label="Driving Force">
-                <input className="form-input" value={data.motivations.drivingForce} onChange={e => onChange({ ...data, motivations: { ...data.motivations, drivingForce: e.target.value } })} placeholder="What fundamentally drives this character?" />
-            </Field>
-
-            <div className="divider" />
-
-            <Field label="Starting State *">
-                <input className="form-input" value={data.characterArc.startingState} onChange={e => onChange({ ...data, characterArc: { ...data.characterArc, startingState: e.target.value } })} placeholder="Who is this character at the beginning?" />
-            </Field>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-                <Field label="Challenges">
-                    <TagInput value={data.characterArc.challenges} onChange={v => onChange({ ...data, characterArc: { ...data.characterArc, challenges: v } })} placeholder="e.g. Faces betrayal…" />
-                </Field>
-                <Field label="Themes Represented">
-                    <TagInput value={data.narrativeFunction.themesRepresented} onChange={v => onChange({ ...data, narrativeFunction: { ...data.narrativeFunction, themesRepresented: v } })} placeholder="e.g. Redemption, Power…" />
-                </Field>
-            </div>
-            <Field label="Transformation">
-                <input className="form-input" value={data.characterArc.transformation} onChange={e => onChange({ ...data, characterArc: { ...data.characterArc, transformation: e.target.value } })} placeholder="How does the character change?" />
-            </Field>
-            <Field label="Ending State">
-                <input className="form-input" value={data.characterArc.endingState} onChange={e => onChange({ ...data, characterArc: { ...data.characterArc, endingState: e.target.value } })} placeholder="Who is this character at the end?" />
-            </Field>
-        </div>
-    );
-}
-
-function Step4Story({ params, onChange }: { params: StoryParams; onChange: (p: StoryParams) => void }) {
-    return (
-        <div>
-            <h2 className="font-serif" style={{ fontSize: 28, marginBottom: 8 }}>Story Parameters</h2>
-            <p style={{ color: "var(--text-secondary)", marginBottom: 32 }}>Set the stage for your fiction story.</p>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-                <Field label="Genre *">
-                    <select className="form-select" value={params.genre} onChange={e => onChange({ ...params, genre: e.target.value })}>
-                        <option value="">Select genre…</option>
-                        {["fantasy", "science_fiction", "mystery", "thriller", "romance", "horror", "historical_fiction", "adventure", "literary_fiction", "other"].map(g => (
-                            <option key={g} value={g}>{g.replace("_", " ").replace(/\b\w/g, c => c.toUpperCase())}</option>
-                        ))}
-                    </select>
-                </Field>
-                <Field label="Tone">
-                    <select className="form-select" value={params.tone} onChange={e => onChange({ ...params, tone: e.target.value })}>
-                        <option value="">Select tone…</option>
-                        {["dark", "lighthearted", "dramatic", "humorous", "suspenseful", "romantic", "neutral"].map(t => (
-                            <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
-                        ))}
-                    </select>
-                </Field>
-                <Field label="Target Audience">
-                    <select className="form-select" value={params.targetAudience} onChange={e => onChange({ ...params, targetAudience: e.target.value })}>
-                        <option value="">Select audience…</option>
-                        {["children", "young_adult", "adult", "all_ages"].map(a => (
-                            <option key={a} value={a}>{a.replace("_", " ").replace(/\b\w/g, c => c.toUpperCase())}</option>
-                        ))}
-                    </select>
-                </Field>
-                <Field label="Number of Chapters">
-                    <input className="form-input" type="number" min={1} max={10} value={params.chapterCount} onChange={e => onChange({ ...params, chapterCount: parseInt(e.target.value) || 3 })} />
-                </Field>
-            </div>
-
-            <Field label="Setting *">
-                <textarea className="form-textarea" value={params.setting} onChange={e => onChange({ ...params, setting: e.target.value })} placeholder="Describe the world or environment where the story takes place…" />
-            </Field>
-            <Field label="Plot Premise *">
-                <textarea className="form-textarea" value={params.plotPremise} onChange={e => onChange({ ...params, plotPremise: e.target.value })} placeholder="What is the core conflict or central idea of the story?" />
-            </Field>
-            <Field label="Additional Notes">
-                <textarea className="form-textarea" value={params.additionalNotes} onChange={e => onChange({ ...params, additionalNotes: e.target.value })} placeholder="Any special instructions for the AI writer…" style={{ minHeight: 70 }} />
-            </Field>
-        </div>
-    );
-}
-
-// ── Main Page ────────────────────────────────────────────────────────────────
-
-const STEPS = ["Character", "Personality", "Arc & Story", "Story Params", "Generating"];
 
 const defaultCharacter: CharacterData = {
-    basicInfo: { name: "", role: "", age: "", gender: "", occupation: "", background: "" },
-    personality: { traits: [], strengths: [], flaws: [], fears: [], desires: [], internalConflicts: [] },
-    motivations: { shortTermGoals: [], longTermGoals: [], drivingForce: "" },
-    backstory: { origin: "", keyLifeEvents: [], traumaOrTurningPoints: [] },
-    characterArc: { startingState: "", challenges: [], transformation: "", endingState: "" },
-    dialogueStyle: { tone: "", speechPatterns: [], vocabularyLevel: "" },
-    narrativeFunction: { storyPurpose: "", themesRepresented: [], keyConflictsInvolved: [] },
-    metadata: { genre: "", worldSetting: "", notes: "" },
-    relationships: [],
+    name: "",
+    role: "protagonist",
+    traits: [],
+    strengths: [],
+    flaws: [],
+    fears: [],
+    desires: [],
 };
 
 const defaultStory: StoryParams = {
-    genre: "", setting: "", plotPremise: "", tone: "", targetAudience: "", chapterCount: 3, additionalNotes: "",
+    genre: "fantasy",
+    setting: "",
+    plotPremise: "",
+    tone: "dramatic",
+    chapterCount: 3,
 };
 
 const MASTRA_URL = "http://localhost:4111";
 
 export default function GeneratePage() {
     const router = useRouter();
-    const [step, setStep] = useState(0);
     const [character, setCharacter] = useState<CharacterData>(defaultCharacter);
     const [storyParams, setStoryParams] = useState<StoryParams>(defaultStory);
-    const [chatOpen, setChatOpen] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [generatingStatus, setGeneratingStatus] = useState("");
     const [error, setError] = useState<string | null>(null);
-    const [generatingStatus, setGeneratingStatus] = useState("Initializing workflow…");
 
-    const buildPayload = useCallback(() => ({
-        basicInfo: {
-            name: character.basicInfo.name,
-            role: character.basicInfo.role || "other",
-            age: character.basicInfo.age ? parseInt(character.basicInfo.age) : undefined,
-            gender: character.basicInfo.gender || undefined,
-            occupation: character.basicInfo.occupation || undefined,
-            background: character.basicInfo.background || undefined,
+    // ── CopilotKit Readables ───────────────────────────────────────────────
+    useCopilotReadable({
+        description: "The current state of the character being developed.",
+        value: character,
+    });
+
+    useCopilotReadable({
+        description: "The current story parameters (genre, setting, etc.).",
+        value: storyParams,
+    });
+
+    // ── CopilotKit Actions ─────────────────────────────────────────────────
+    useCopilotAction({
+        name: "updateCharacterData",
+        description: "Update character attributes.",
+        parameters: [
+            { name: "name", type: "string" },
+            {
+                name: "role",
+                type: "string",
+                enum: ["protagonist", "antagonist", "supporting", "minor", "mentor", "foil", "sidekick", "other"],
+                description: "Character role (lowercase)"
+            },
+            { name: "age", type: "number" },
+            { name: "gender", type: "string" },
+            { name: "occupation", type: "string" },
+            { name: "background", type: "string" },
+            { name: "traits", type: "string[]" },
+            { name: "strengths", type: "string[]" },
+            { name: "flaws", type: "string[]" },
+            { name: "fears", type: "string[]" },
+            { name: "desires", type: "string[]" },
+        ],
+        handler: async (args: any) => {
+            setCharacter(prev => ({ ...prev, ...args }));
         },
-        personality: character.personality,
-        motivations: character.motivations,
-        backstory: {
-            origin: character.backstory.origin || undefined,
-            keyLifeEvents: character.backstory.keyLifeEvents,
-            traumaOrTurningPoints: character.backstory.traumaOrTurningPoints,
-            relationshipsInfluence: [],
+    });
+
+    useCopilotAction({
+        name: "updateStoryParams",
+        description: "Update story parameters like genre, setting, and plot.",
+        parameters: [
+            { name: "genre", type: "string" },
+            { name: "setting", type: "string" },
+            { name: "plotPremise", type: "string" },
+            { name: "tone", type: "string" },
+            { name: "chapterCount", type: "number" },
+        ],
+        handler: async (args: any) => {
+            setStoryParams(prev => ({ ...prev, ...args }));
         },
-        relationships: character.relationships,
-        characterArc: {
-            startingState: character.characterArc.startingState || "Unknown",
-            challenges: character.characterArc.challenges,
-            transformation: character.characterArc.transformation || undefined,
-            endingState: character.characterArc.endingState || undefined,
-        },
-        dialogueStyle: {
-            tone: character.dialogueStyle.tone || undefined,
-            speechPatterns: character.dialogueStyle.speechPatterns,
-            vocabularyLevel: (character.dialogueStyle.vocabularyLevel as "simple" | "casual" | "formal" | "technical" | "poetic") || undefined,
-        },
-        narrativeFunction: {
-            storyPurpose: character.narrativeFunction.storyPurpose || "To drive the story forward",
-            themesRepresented: character.narrativeFunction.themesRepresented,
-            keyConflictsInvolved: character.narrativeFunction.keyConflictsInvolved,
-        },
-        metadata: {
-            genre: character.metadata.genre || undefined,
-            worldSetting: character.metadata.worldSetting || undefined,
-            notes: character.metadata.notes || undefined,
-        },
-    }), [character]);
+    });
 
     const runWorkflow = useCallback(async () => {
-        setStep(4);
+        setIsGenerating(true);
         setError(null);
 
         try {
-            // 1. Start the workflow
-            setGeneratingStatus("Starting workflow…");
-            const startRes = await fetch(`${MASTRA_URL}/api/workflows/fiction-generation-workflow/start-async`, {
+            setGeneratingStatus("Starting story generation workflow...");
+            const runId = crypto.randomUUID();
+            console.log("Starting workflow with runId:", runId);
+
+            const startRes = await fetch(`${MASTRA_URL}/api/workflows/fiction-generation-workflow/start-async?runId=${runId}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ inputData: buildPayload() }),
+                body: JSON.stringify({
+                    inputData: {
+                        basicInfo: {
+                            name: character.name || "Hero",
+                            role: character.role,
+                            age: character.age,
+                            gender: character.gender,
+                            occupation: character.occupation,
+                            background: character.background,
+                        },
+                        personality: {
+                            traits: character.traits,
+                            strengths: character.strengths,
+                            flaws: character.flaws,
+                            fears: character.fears,
+                            desires: character.desires,
+                            internalConflicts: [],
+                        },
+                        motivations: {
+                            shortTermGoals: [],
+                            longTermGoals: [],
+                            drivingForce: "",
+                        },
+                        backstory: {
+                            origin: "",
+                            keyLifeEvents: [],
+                            traumaOrTurningPoints: [],
+                            relationshipsInfluence: [],
+                        },
+                        relationships: [],
+                        characterArc: {
+                            startingState: "At the beginning of the journey",
+                            challenges: [],
+                        },
+                        dialogueStyle: {
+                            tone: "neutral",
+                            speechPatterns: [],
+                        },
+                        narrativeFunction: {
+                            storyPurpose: "Protagonist",
+                            themesRepresented: [],
+                            keyConflictsInvolved: [],
+                        },
+                    }
+                }),
             });
 
-            if (!startRes.ok) {
-                const text = await startRes.text();
-                throw new Error(`Failed to start workflow: ${startRes.status} — ${text}`);
+            if (!startRes.ok) throw new Error("Failed to start workflow");
+
+            // Wait for first suspension
+            let isSuspended = false;
+            while (!isSuspended) {
+                await new Promise(r => setTimeout(r, 1000));
+                const res = await fetch(`${MASTRA_URL}/api/workflows/fiction-generation-workflow/runs/${runId}`);
+                const data = await res.json();
+                if (data.status === "suspended") isSuspended = true;
+                if (data.status === "failed") throw new Error("Workflow failed before starting Character Profile");
             }
 
-            const { runId } = await startRes.json() as { runId: string };
-
-            // 2. Resume step 1 (character data approval)
-            setGeneratingStatus("Approving character data…");
-            await new Promise(r => setTimeout(r, 1200));
-
-            const resume1Res = await fetch(`${MASTRA_URL}/api/workflows/fiction-generation-workflow/${runId}/resume`, {
+            setGeneratingStatus("Developing character profile...");
+            const resume1Res = await fetch(`${MASTRA_URL}/api/workflows/fiction-generation-workflow/resume?runId=${runId}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     stepId: "collect-character-data",
                     resumeData: {
-                        reviewer: { name: "User", role: "author" },
-                        reviewContext: { entityType: "character", entityId: character.basicInfo.name || "character" },
                         reviewStatus: "approved",
-                        feedback: { summary: "Approved", strengths: [], issues: [], suggestedChanges: [] },
-                        decisions: { allowAgentContinuation: true, requireHumanApprovalNextStep: false, lockedFields: [] },
-                        revisionInstructions: { regenerateSections: [], preserveSections: [], additionalConstraints: [] },
+                        reviewer: { name: "System", role: "reviewer" },
+                        reviewContext: { entityType: "character", entityId: character.name || "Hero" },
+                        feedback: { summary: "Auto-approved" },
+                        decisions: { allowAgentContinuation: true },
+                        revisionInstructions: { regenerateSections: [] }
                     },
                 }),
             });
 
             if (!resume1Res.ok) {
-                const text = await resume1Res.text();
-                throw new Error(`Failed to resume step 1: ${resume1Res.status} — ${text}`);
+                const errData = await resume1Res.json();
+                throw new Error(errData.error || "Failed to resume Character Data step");
             }
 
-            // 3. Wait for character development agent to run
-            setGeneratingStatus("Building character profile with AI…");
-            await new Promise(r => setTimeout(r, 3000));
+            // Wait for second suspension
+            setGeneratingStatus("Waiting for character profile generation...");
+            isSuspended = false;
+            while (!isSuspended) {
+                await new Promise(r => setTimeout(r, 2000));
+                const res = await fetch(`${MASTRA_URL}/api/workflows/fiction-generation-workflow/runs/${runId}`);
+                const data = await res.json();
+                if (data.status === "suspended" && data.suspended?.[0]?.includes("collect-story-parameters")) {
+                    isSuspended = true;
+                }
+                if (data.status === "failed") throw new Error("Workflow failed during Character Profile generation");
+            }
 
-            // 4. Resume step 3 (story parameters)
-            setGeneratingStatus("Providing story parameters…");
-            await new Promise(r => setTimeout(r, 800));
-
-            const resume2Res = await fetch(`${MASTRA_URL}/api/workflows/fiction-generation-workflow/${runId}/resume`, {
+            setGeneratingStatus("Setting story parameters...");
+            const resume2Res = await fetch(`${MASTRA_URL}/api/workflows/fiction-generation-workflow/resume?runId=${runId}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -446,187 +226,186 @@ export default function GeneratePage() {
                     resumeData: {
                         reviewStatus: "approved",
                         storyParameters: {
-                            genre: storyParams.genre || "fantasy",
-                            setting: storyParams.setting,
-                            plotPremise: storyParams.plotPremise,
-                            tone: storyParams.tone || undefined,
-                            targetAudience: storyParams.targetAudience || undefined,
-                            chapterCount: storyParams.chapterCount,
-                            additionalNotes: storyParams.additionalNotes || undefined,
+                            ...storyParams,
+                            chapterCount: storyParams.chapterCount || 3,
                         },
                     },
                 }),
             });
 
             if (!resume2Res.ok) {
-                const text = await resume2Res.text();
-                throw new Error(`Failed to resume step 3: ${resume2Res.status} — ${text}`);
+                const errData = await resume2Res.json();
+                throw new Error(errData.error || "Failed to resume Story Parameters step");
             }
 
-            // 5. Poll for completion
-            setGeneratingStatus("Writing your story… (this may take a minute)");
-
-            let result: { title: string; story: string; chapterBreakdown?: Array<{ chapterNumber: number; chapterTitle: string; summary: string }> } | null = null;
+            setGeneratingStatus("Writing your book... (this may take a minute)");
+            let result = null;
             let attempts = 0;
-            const maxAttempts = 60;
-
-            while (!result && attempts < maxAttempts) {
-                await new Promise(r => setTimeout(r, 3000));
+            while (!result && attempts < 60) {
+                await new Promise(r => setTimeout(r, 2000));
                 attempts++;
-
                 const statusRes = await fetch(`${MASTRA_URL}/api/workflows/fiction-generation-workflow/runs/${runId}`);
-                if (statusRes.ok) {
-                    const data = await statusRes.json() as {
-                        status?: string;
-                        result?: { title: string; story: string; chapterBreakdown?: Array<{ chapterNumber: number; chapterTitle: string; summary: string }> };
-                        output?: { title: string; story: string; chapterBreakdown?: Array<{ chapterNumber: number; chapterTitle: string; summary: string }> };
-                    };
-                    if (data.status === "completed" || data.status === "success") {
-                        result = data.result ?? data.output ?? null;
-                    } else if (data.status === "failed" || data.status === "error") {
-                        throw new Error("Workflow failed during story generation.");
-                    }
+                const data = await statusRes.json();
+                if (data.status === "completed" || data.status === "success") {
+                    result = data.result || data.output;
+                } else if (data.status === "failed") {
+                    throw new Error("Story generation failed");
                 }
-
-                setGeneratingStatus(`Writing your story… (${attempts * 3}s elapsed)`);
             }
 
-            if (!result) {
-                throw new Error("Story generation timed out. Please try again.");
+            if (result) {
+                localStorage.setItem("storyforge_story", JSON.stringify(result));
+                router.push("/read");
+            } else {
+                throw new Error("Generation timed out");
             }
 
-            // 6. Save and navigate
-            localStorage.setItem("storyforge_story", JSON.stringify(result));
-            router.push("/read");
-
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "An unexpected error occurred.");
-            setStep(3);
+        } catch (err: any) {
+            setError(err.message);
+            setIsGenerating(false);
         }
-    }, [buildPayload, character.basicInfo.name, storyParams, router]);
+    }, [character, storyParams, router]);
 
-    const canProceed = () => {
-        if (step === 0) return character.basicInfo.name.trim() && character.basicInfo.role;
-        if (step === 3) return storyParams.genre && storyParams.setting.trim() && storyParams.plotPremise.trim();
-        return true;
-    };
+    useCopilotAction({
+        name: "triggerFictionGeneration",
+        description: "Generate the story when requirements are ready.",
+        handler: async () => {
+            runWorkflow();
+        },
+    });
 
     return (
-        <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-            {/* Navbar */}
+        <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: "var(--bg-deep)" }}>
+            {/* Nav */}
             <nav style={{
                 display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "16px 40px",
+                padding: "12px 24px",
                 borderBottom: "1px solid var(--border)",
-                background: "rgba(10,11,15,0.9)",
+                background: "rgba(10,11,15,0.8)",
                 backdropFilter: "blur(12px)",
-                position: "sticky", top: 0, zIndex: 50,
+                zIndex: 10
             }}>
-                <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
-                    <span style={{ fontSize: 20 }}>📖</span>
-                    <span className="font-serif" style={{ fontSize: 20, fontWeight: 700, color: "var(--gold)" }}>StoryForge</span>
+                <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
+                    <span style={{ fontSize: 18 }}>📖</span>
+                    <span className="font-serif" style={{ fontSize: 18, fontWeight: 700, color: "var(--gold)" }}>StoryForge</span>
                 </Link>
-                <button className="btn-ghost" style={{ padding: "8px 16px", fontSize: 13 }} onClick={() => setChatOpen(!chatOpen)}>
-                    💬 AI Help
-                </button>
+                <div style={{ display: "flex", gap: 12 }}>
+                    {isGenerating && <div className="spinner" style={{ width: 16, height: 16 }} />}
+                    <span style={{ color: "var(--text-secondary)", fontSize: 13 }}>{generatingStatus || "Chat with AI to start"}</span>
+                </div>
             </nav>
 
-            <div style={{ flex: 1, display: "flex" }}>
-                {/* Main content */}
-                <div style={{ flex: 1, padding: "48px 40px", maxWidth: chatOpen ? "calc(100% - 380px)" : "100%", transition: "max-width 0.3s" }}>
-                    {/* Step Indicator */}
-                    {step < 4 && (
-                        <div style={{ maxWidth: 700, margin: "0 auto 48px" }}>
-                            <div className="step-indicator">
-                                {STEPS.slice(0, 4).map((label, i) => (
-                                    <div key={label} style={{ display: "flex", alignItems: "center", flex: i < 3 ? 1 : "none" }}>
-                                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                                            <div className={`step-dot ${i < step ? "completed" : i === step ? "active" : "pending"}`}>
-                                                {i < step ? "✓" : i + 1}
-                                            </div>
-                                            <span style={{ fontSize: 11, color: i === step ? "var(--gold)" : "var(--text-muted)", whiteSpace: "nowrap" }}>{label}</span>
-                                        </div>
-                                        {i < 3 && <div className={`step-line ${i < step ? "completed" : ""}`} style={{ margin: "0 8px", marginBottom: 20 }} />}
-                                    </div>
-                                ))}
-                            </div>
+            {/* Main Layout */}
+            <main style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+                {/* Left: Chat */}
+                <section style={{ flex: 1.2, borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column" }}>
+                    <CopilotChat
+                        className="custom-copilot-chat"
+                        labels={{
+                            title: "Character Architect",
+                            initial: "Welcome to StoryForge! Let's build your story. What's the name of your main character?"
+                        }}
+                    />
+                </section>
+
+                {/* Right: Live Preview */}
+                <section style={{ flex: 1, padding: 32, overflowY: "auto", background: "rgba(255,255,255,0.02)" }}>
+                    {error && (
+                        <div style={{ padding: 12, background: "rgba(220,50,50,0.1)", border: "1px solid #dc3232", borderRadius: 8, marginBottom: 24, color: "#ff7070", fontSize: 13 }}>
+                            {error}
                         </div>
                     )}
 
-                    {/* Step Content */}
-                    <div style={{ maxWidth: 700, margin: "0 auto" }}>
-                        {error && (
-                            <div style={{ padding: 16, background: "rgba(220,50,50,0.1)", border: "1px solid rgba(220,50,50,0.3)", borderRadius: "var(--radius-md)", marginBottom: 24, color: "#ff7070" }}>
-                                ⚠️ {error}
+                    <div style={{ maxWidth: 500, margin: "0 auto" }}>
+                        <h2 className="font-serif" style={{ fontSize: 24, color: "var(--gold)", marginBottom: 24, borderBottom: "1px solid var(--border-accent)", paddingBottom: 12 }}>
+                            Live Character Preview
+                        </h2>
+
+                        <div className="card" style={{ padding: 24, position: "relative", overflow: "hidden" }}>
+                            <div style={{ position: "absolute", top: 0, right: 0, padding: "8px 16px", background: "var(--gold)", color: "black", fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>
+                                {character.role}
                             </div>
-                        )}
 
-                        <div className="card" style={{ padding: 40 }}>
-                            {step === 0 && <Step1BasicInfo data={character} onChange={setCharacter} />}
-                            {step === 1 && <Step2Personality data={character} onChange={setCharacter} />}
-                            {step === 2 && <Step3Arc data={character} onChange={setCharacter} />}
-                            {step === 3 && <Step4Story params={storyParams} onChange={setStoryParams} />}
-                            {step === 4 && (
-                                <div style={{ textAlign: "center", padding: "60px 20px" }}>
-                                    <div style={{ fontSize: 64, marginBottom: 24, animation: "float 3s ease-in-out infinite" }}>✍️</div>
-                                    <h2 className="font-serif" style={{ fontSize: 32, marginBottom: 16 }}>
-                                        <span className="gold-shimmer">Crafting Your Story…</span>
-                                    </h2>
-                                    <p style={{ color: "var(--text-secondary)", marginBottom: 32, fontSize: 16 }}>{generatingStatus}</p>
-                                    <div style={{ display: "flex", justifyContent: "center" }}>
-                                        <div className="spinner" style={{ width: 40, height: 40, borderWidth: 3 }} />
-                                    </div>
-                                    <p style={{ color: "var(--text-muted)", marginTop: 32, fontSize: 13 }}>
-                                        The AI is building your character and writing your story. This typically takes 30–90 seconds.
-                                    </p>
+                            <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 8, letterSpacing: "0.1em" }}>IDENTIFICATION</p>
+                            <h3 style={{ fontSize: 32, marginBottom: 16 }}>{character.name || "Unnamed"}</h3>
+
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
+                                <div>
+                                    <p style={{ fontSize: 11, color: "var(--text-muted)" }}>AGE</p>
+                                    <p style={{ color: "white" }}>{character.age || "???"}</p>
+                                </div>
+                                <div>
+                                    <p style={{ fontSize: 11, color: "var(--text-muted)" }}>GENDER</p>
+                                    <p style={{ color: "white" }}>{character.gender || "???"}</p>
+                                </div>
+                                <div style={{ gridColumn: "span 2" }}>
+                                    <p style={{ fontSize: 11, color: "var(--text-muted)" }}>OCCUPATION</p>
+                                    <p style={{ color: "white" }}>{character.occupation || "???"}</p>
+                                </div>
+                            </div>
+
+                            <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 8, letterSpacing: "0.1em" }}>PSYCHOLOGY</p>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 20 }}>
+                                {character.traits.length > 0 ? character.traits.map(t => <span key={t} className="tag" style={{ border: "1px solid var(--gold-dim)", color: "var(--gold-light)" }}>{t}</span>) : <span style={{ color: "var(--text-muted)", fontSize: 12, fontStyle: "italic" }}>No traits yet</span>}
+                            </div>
+
+                            <div style={{ marginBottom: 20 }}>
+                                <p style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>FLAWS & FEARS</p>
+                                <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+                                    {[...character.flaws, ...character.fears].join(", ") || "Awaiting complexity..."}
+                                </p>
+                            </div>
+
+                            <div className="divider" />
+
+                            <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 8, letterSpacing: "0.1em" }}>STORY CONFIG</p>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                                <div>
+                                    <p style={{ fontSize: 11, color: "var(--text-muted)" }}>GENRE</p>
+                                    <p style={{ fontSize: 13, color: "var(--gold-light)", textTransform: "capitalize" }}>{storyParams.genre.replace("_", " ")}</p>
+                                </div>
+                                <div>
+                                    <p style={{ fontSize: 11, color: "var(--text-muted)" }}>CHAPTERS</p>
+                                    <p style={{ fontSize: 13, color: "white" }}>{storyParams.chapterCount}</p>
+                                </div>
+                            </div>
+
+                            {storyParams.setting && (
+                                <div style={{ marginTop: 12 }}>
+                                    <p style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>SETTING</p>
+                                    <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>{storyParams.setting}</p>
                                 </div>
                             )}
+                        </div>
 
-                            {/* Navigation */}
-                            {step < 4 && (
-                                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 40, paddingTop: 24, borderTop: "1px solid var(--border)" }}>
-                                    <button
-                                        className="btn-ghost"
-                                        onClick={() => step > 0 ? setStep(step - 1) : router.push("/")}
-                                        style={{ padding: "12px 24px" }}
-                                    >
-                                        ← {step === 0 ? "Home" : "Back"}
-                                    </button>
-                                    <button
-                                        className="btn-primary"
-                                        disabled={!canProceed()}
-                                        onClick={() => step < 3 ? setStep(step + 1) : runWorkflow()}
-                                        style={{ opacity: canProceed() ? 1 : 0.4, cursor: canProceed() ? "pointer" : "not-allowed" }}
-                                    >
-                                        {step === 3 ? "✨ Generate Story" : "Next →"}
-                                    </button>
-                                </div>
-                            )}
+                        <div style={{ marginTop: 24, textAlign: "center" }}>
+                            <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                                Talk to the AI to update this profile.
+                            </p>
                         </div>
                     </div>
-                </div>
+                </section>
+            </main>
 
-                {/* CopilotChat Sidebar */}
-                {chatOpen && (
-                    <div style={{
-                        width: 380, flexShrink: 0,
-                        borderLeft: "1px solid var(--border-accent)",
-                        background: "var(--bg-surface)",
-                        display: "flex", flexDirection: "column",
-                        position: "sticky", top: 57, height: "calc(100vh - 57px)",
-                    }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderBottom: "1px solid var(--border)" }}>
-                            <span className="font-serif" style={{ fontSize: 16, color: "var(--gold)" }}>AI Writing Assistant</span>
-                            <button onClick={() => setChatOpen(false)} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", fontSize: 18 }}>✕</button>
-                        </div>
-                        <div style={{ flex: 1, overflow: "hidden" }}>
-                            <CopilotChat
-                                labels={{ title: "Writing Assistant", initial: "Need help with your character or story? Ask me anything — I can suggest traits, plot ideas, or backstory details!" }}
-                            />
-                        </div>
-                    </div>
-                )}
-            </div>
+            <style jsx global>{`
+                .custom-copilot-chat {
+                    height: 100% !important;
+                    background: transparent !important;
+                }
+                .CopilotKitChatWindow {
+                    background: transparent !important;
+                    border: none !important;
+                }
+                .CopilotKitChatHeader {
+                    display: none !important;
+                }
+                .CopilotKitMessages {
+                    background: transparent !important;
+                }
+                .CopilotKitMessage {
+                    max-width: 90% !important;
+                }
+            `}</style>
         </div>
     );
 }

@@ -8,7 +8,7 @@ import {
     FictionResumeSchema,
     FictionSuspendSchema,
 } from "../../schema/character-dev";
-import { mastra } from "..";
+// import { mastra } from ".."; // Removed to break circular dependency
 import z from "zod";
 
 // ─── Step 1: Collect Character Data (Human-in-Loop) ─────────────────────────
@@ -74,7 +74,7 @@ const buildCharacterProfileStep = createStep({
         characterProfile: z.string(),
         characterName: z.string(),
     }),
-    execute: async ({ inputData }) => {
+    execute: async ({ inputData, mastra }) => {
         const characterDevelopmentAgent = mastra.getAgent(
             "characterDevelopmentAgent"
         );
@@ -231,7 +231,7 @@ const generateFictionStoryStep = createStep({
         storyParameters: FictionStoryInputSchema,
     }),
     outputSchema: FictionStoryOutputSchema,
-    execute: async ({ inputData }) => {
+    execute: async ({ inputData, mastra }) => {
         const fictionWritingAgent = mastra.getAgent("fictionWritingAgent");
         if (!fictionWritingAgent) {
             throw new Error("Fiction Writing Agent not found");
