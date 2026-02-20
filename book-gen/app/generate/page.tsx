@@ -187,7 +187,7 @@ export default function GeneratePage() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    stepId: "collect-character-data",
+                    step: "collect-character-data",
                     resumeData: {
                         reviewStatus: "approved",
                         reviewer: { name: "System", role: "reviewer" },
@@ -222,7 +222,7 @@ export default function GeneratePage() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    stepId: "collect-story-parameters",
+                    step: "collect-story-parameters",
                     resumeData: {
                         reviewStatus: "approved",
                         storyParameters: {

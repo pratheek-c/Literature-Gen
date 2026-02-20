@@ -214,7 +214,11 @@ const collectStoryParametersStep = createStep({
         return {
             characterProfile,
             characterName,
-            storyParameters: resumeData!.storyParameters!,
+            storyParameters: resumeData?.storyParameters ?? {
+                genre: "fantasy",
+                setting: "unknown",
+                plotPremise: "A mystery unfolds",
+            } as any,
         };
     },
 });
