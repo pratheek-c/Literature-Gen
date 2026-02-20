@@ -348,3 +348,68 @@ export const CharacterDevelopmentSuspendSchema = z.object({
 export type CharacterDevelopmentSuspend = z.infer<
   typeof CharacterDevelopmentSuspendSchema
 >;
+
+// ─── Fiction Story Schemas ───────────────────────────────────────────────────
+
+/**
+ * Input schema for story parameters collected from the user
+ * in the human-in-loop step before story generation.
+ */
+export const FictionStoryInputSchema = z.object({
+  genre: z.enum([
+    "fantasy",
+    "science_fiction",
+    "mystery",
+    "thriller",
+    "romance",
+    "horror",
+    "historical_fiction",
+    "adventure",
+    "literary_fiction",
+    "other",
+  ]),
+  setting: z.string().describe("World or environment where the story takes place"),
+  plotPremise: z.string().describe("Core conflict or central idea of the story"),
+  tone: z.enum(["dark", "lighthearted", "dramatic", "humorous", "suspenseful", "romantic", "neutral"]).optional(),
+  targetAudience: z.enum(["children", "young_adult", "adult", "all_ages"]).optional(),
+  chapterCount: z.number().int().min(1).max(20).optional().default(3),
+  additionalNotes: z.string().optional(),
+});
+
+export type FictionStoryInput = z.infer<typeof FictionStoryInputSchema>;
+
+/**
+ * Output schema for the generated fiction story.
+ */
+export const FictionStoryOutputSchema = z.object({
+  title: z.string(),
+  story: z.string().describe("The full generated fiction story text"),
+  chapterBreakdown: z.array(
+    z.object({
+      chapterNumber: z.number(),
+      chapterTitle: z.string(),
+      summary: z.string(),
+    })
+  ).optional(),
+});
+
+export type FictionStoryOutput = z.infer<typeof FictionStoryOutputSchema>;
+
+/**
+ * Resume schema for the story parameters collection step.
+ * The human provides story parameters and approves to continue.
+ */
+export const FictionResumeSchema = z.object({
+  reviewStatus: z.enum(["approved", "rejected"]),
+  storyParameters: FictionStoryInputSchema.optional(),
+});
+
+export type FictionResume = z.infer<typeof FictionResumeSchema>;
+
+/**
+ * Suspend schema for the story parameters collection step.
+ * Reuses the same shape as CharacterDevelopmentSuspendSchema.
+ */
+export const FictionSuspendSchema = CharacterDevelopmentSuspendSchema;
+
+export type FictionSuspend = z.infer<typeof FictionSuspendSchema>;
